@@ -14,6 +14,12 @@ def generate_launch_description():
             '/heavy_sim_no_tf.launch.py'
         ])
     )
+    orbslam3 = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join( 
+            get_package_share_directory('orbslam3_ros2'), 'launch'),
+            '/stereo_sim.launch.py'
+        ])
+    )
     foxglove = Node(
             package='foxglove_bridge',
             executable='foxglove_bridge',
@@ -22,5 +28,6 @@ def generate_launch_description():
         )
     return LaunchDescription([
         orca4,
-        foxglove
+        foxglove,
+        orbslam3
     ])
