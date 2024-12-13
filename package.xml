@@ -4,7 +4,7 @@
   <name>voris_description</name>
   <version>0.0.0</version>
   <description>Voris bringup package</description>
-  <maintainer email="gustavo.alcantara@gmail.com">gustavo</maintainer>
+  <maintainer email="gustavo.v.alcantara@gmail.com">gustavo</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
