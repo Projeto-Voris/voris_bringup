@@ -27,14 +27,6 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(
-        PROGRAMS
-        scripts/odom2tf.py
-        scripts/joint_state_publisher.py
-        scripts/orbslam2base_link.py
-        DESTINATION lib/${PROJECT_NAME}
-)
-
 install(DIRECTORY launch
         DESTINATION share/${PROJECT_NAME}/)
 
