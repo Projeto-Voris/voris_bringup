@@ -23,8 +23,9 @@ def generate_launch_description():
     orbslam3 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join( 
             get_package_share_directory('orbslam3_ros2'), 'launch'),
-            '/stereo_sim.launch.py'
-        ])
+            '/stereo_sim.launch.py',
+        ]),
+        launch_arguments = {'pangolin':"False"}.items()
     )
     passive_stereo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join( 
