@@ -33,12 +33,18 @@ def generate_launch_description():
             '/triangulation_rgb.launch.py'
         ])
     )
-
+    mapper = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(
+            get_package_share_directory('pointcloud_concatenator'), 'launch'),
+            '/pointcloud_concatenator.launch.py'
+        ])
+    )
     return LaunchDescription([
         orca4,
         foxglove,
         orbslam3,
         passive_stereo,
+        mapper,
         ExecuteProcess(
             cmd=['foxglove-studio'],
             output='screen',
