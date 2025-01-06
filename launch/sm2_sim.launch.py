@@ -29,7 +29,7 @@ def generate_launch_description():
     )
     passive_stereo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join( 
-            get_package_share_directory('disparity'), 'launch'),
+            get_package_share_directory('passive_stereo'), 'launch'),
             '/triangulation_rgb.launch.py'
         ])
     )

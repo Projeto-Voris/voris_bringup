@@ -19,17 +19,17 @@ def generate_launch_description():
         DeclareLaunchArgument('description', default_value='False', description='Open description process?'),
         
         
-        # IncludeLaunchDescription(
-        #     PythonLaunchDescriptionSource([PathJoinSubstitution([
-        #         FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm3_camera.launch.py'])
-        #         ])
-        # ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm3_camera.launch.py'])
+                ])
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('stereo_active'), 'launch',
                 'noise_display.launch.py'])
             ]),
-            condition=IfCondition(LaunchConfiguration('slam')),
+            condition=IfCondition(LaunchConfiguration('pattern')),
             launch_arguments = {'namespace':'SM2',
                                 'service_topic': 'pattern_change',
                                 'monitor_name': 'Monitor_1'}.items(),
@@ -40,8 +40,7 @@ def generate_launch_description():
                 FindPackageShare('stereo_active'), 'launch',
                 'stereo_acquisition.launch.py'])
             ]),
-            condition=IfCondition(LaunchConfiguration('pattern')),
-            launch_arguments = {'namespace':'SM3',
+                launch_arguments = {'namespace':'SM3',
                                 'left_topic': '/SM2/left/image_raw',
                                 'right_topic': '/SM2/right/image_raw',
                                 'service_topic': 'pattern_change',
