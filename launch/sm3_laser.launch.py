@@ -14,17 +14,17 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        DeclareLaunchArgument('cameras_on', default_value='False', description='Open Pattern Projection process?'),
-        DeclareLaunchArgument('inverse_triangulation', default_value='False', description='Open Inverse Triangulation process?'),
+        DeclareLaunchArgument('cameras_on', default_value='True', description='Open Pattern Projection process?'),
+        DeclareLaunchArgument('inv_triang', default_value='True', description='Open Inverse Triangulation process?'),
         DeclareLaunchArgument('description', default_value='False', description='Open description process?'),
         DeclareLaunchArgument('motor_topic', default_value='motor/angle', description='Topic of stepper motor angle'),
         
-        # IncludeLaunchDescription(
-        #     PythonLaunchDescriptionSource([PathJoinSubstitution([
-        #         FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm4_camera.launch.py'])
-        #         ]),
-        #     condition=IfCondition(LaunchConfiguration('cameras_on'))
-        # ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm3_camera.launch.py'])
+                ]),
+            condition=IfCondition(LaunchConfiguration('cameras_on'))
+        ),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
@@ -43,12 +43,11 @@ def generate_launch_description():
                 FindPackageShare('stereo_active'), 'launch',
                 'inverse_triangulation.launch.py'])
             ]),
+            condition=IfCondition(LaunchConfiguration('inv_triang')),
             launch_arguments = {'namespace':'SM3',
-                            'left_image': '/SM4/left/image_raw',
-                            'right_image': '/SM4/right/image_raw',
-                            'left_camera_info': '/SM4/left/camera_info',
-                            'right_camera_info': '/SM4/right/camera_info',
+                            'left_image': 'left/image_raw',
+                            'right_image': 'right/image_raw',
                             'motor_topic': LaunchConfiguration('motor_topic'),
                             'n_images': '10'}.items(),
-        ),
+        )        
     ])

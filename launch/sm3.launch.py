@@ -21,7 +21,7 @@ def generate_launch_description():
         
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm3_camera.launch.py'])
+                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm4_camera.launch.py'])
                 ])
         ),
         IncludeLaunchDescription(
@@ -30,7 +30,7 @@ def generate_launch_description():
                 'noise_display.launch.py'])
             ]),
             condition=IfCondition(LaunchConfiguration('pattern')),
-            launch_arguments = {'namespace':'SM2',
+            launch_arguments = {'namespace':'SM3',
                                 'service_topic': 'pattern_change',
                                 'monitor_name': 'Monitor_1'}.items(),
 
@@ -41,8 +41,8 @@ def generate_launch_description():
                 'stereo_acquisition.launch.py'])
             ]),
                 launch_arguments = {'namespace':'SM3',
-                                'left_topic': '/SM2/left/image_raw',
-                                'right_topic': '/SM2/right/image_raw',
+                                'left_topic': '/SM4/left/image_raw',
+                                'right_topic': '/SM4/right/image_raw',
                                 'service_topic': 'pattern_change',
                                 'n_images': '10'}.items(),
         ),
