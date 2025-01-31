@@ -41,14 +41,17 @@ def generate_launch_description():
         ]),
         launch_arguments= {'namespace':"/SM2", 'pointcloud':"/SM2/pointcloud", 'transform':"/SM2/orbslam3/transform"}.items()
     )
+    description = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join( 
+            get_package_share_directory('voris_description'), 'launch'),
+            '/sim_visualize.launch.py',
+        ])
+    )
     return LaunchDescription([
         mapper,
         orca4,
         foxglove,
         orbslam3,
-        passive_stereo
-        # ExecuteProcess(
-        #     cmd=['foxglove-studio'],
-        #     output='screen',
-        # )
+        passive_stereo,
+        description
     ])
