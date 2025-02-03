@@ -32,7 +32,7 @@ def generate_launch_description():
             get_package_share_directory('passive_stereo'), 'launch'),
             '/triangulation_rgb.launch.py'
         ]),
-        launch_arguments= {'namespace':"/SM2", 'delay_time':"0", 'left_image':"/stereo_left", 'right_image':"/stereo_right"}.items()
+        launch_arguments= {'namespace':"/SM2", 'delay_time':"0", 'left_image':"/stereo_left", 'right_image':"/stereo_right", 'frame_id':"left_camera_frame"}.items()
     )
     mapper = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
@@ -44,8 +44,9 @@ def generate_launch_description():
     description = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join( 
             get_package_share_directory('voris_description'), 'launch'),
-            '/sim_visualize.launch.py',
-        ])
+            '/sim_visualize.launch.py'
+        ]),
+        launch_arguments={'gui':'false'}.items()
     )
     return LaunchDescription([
         mapper,
