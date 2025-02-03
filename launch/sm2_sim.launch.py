@@ -25,7 +25,7 @@ def generate_launch_description():
             get_package_share_directory('orbslam3_ros2'), 'launch'),
             '/stereo_sim.launch.py',
         ]),
-        launch_arguments = {'namespace':"/SM2/orbslam3",'pangolin':"False"}.items()
+        launch_arguments = {'namespace':"/SM2/orbslam3",'pangolin':"False", 'child_frame_id': "base_link"}.items()
     )
     passive_stereo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join( 
