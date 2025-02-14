@@ -14,36 +14,40 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        DeclareLaunchArgument('pattern', default_value='True', description='Open Pattern Projection process?'),
-        DeclareLaunchArgument('inverse_triangulation', default_value='False', description='Open Inverse Triangulation process?'),
+        DeclareLaunchArgument('cameras_on', default_value='True', description='Open Pattern Projection process?'),
+        DeclareLaunchArgument('inv_triang', default_value='True', description='Open Inverse Triangulation process?'),
         DeclareLaunchArgument('description', default_value='False', description='Open description process?'),
-        
-        
+        DeclareLaunchArgument('motor_topic', default_value='motor/angle', description='Topic of stepper motor angle'),
+        DeclareLaunchArgument('num_images', default_value='10', description='Number of images to acquire'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm4_camera.launch.py'])
-                ])
+                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm3_camera.launch.py'])
+                ]),
+            condition=IfCondition(LaunchConfiguration('cameras_on'))
         ),
+
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('stereo_active'), 'launch',
-                'noise_display.launch.py'])
+                FindPackageShare('stereo_active'), 'launch','gpio_control.launch.py'])
             ]),
-            condition=IfCondition(LaunchConfiguration('pattern')),
             launch_arguments = {'namespace':'SM3',
-                                'service_topic': 'pattern_change',
-                                'monitor_name': 'Monitor_1'}.items(),
+                                'stepping_mode': 'full',
+                                'step_delay': '20',
+                                'steps_per_rev': '2048',
+                                'motor_angle_topic': LaunchConfiguration('motor_topic')}.items(),
 
         ),
+
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('stereo_active'), 'launch',
-                'stereo_acquisition.launch.py'])
+                'inverse_triangulation.launch.py'])
             ]),
-                launch_arguments = {'namespace':'SM3',
-                                'left_topic': '/SM4/left/image_raw',
-                                'right_topic': '/SM4/right/image_raw',
-                                'service_topic': 'pattern_change',
-                                'n_images': '10'}.items(),
-        ),
+            condition=IfCondition(LaunchConfiguration('inv_triang')),
+            launch_arguments = {'namespace':'SM3',
+                            'left_image': 'left/image_raw',
+                            'right_image': 'right/image_raw',
+                            'motor_topic': LaunchConfiguration('motor_topic'),
+                            'n_images': LaunchConfiguration('num_images')}.items(),
+        )   
     ])
