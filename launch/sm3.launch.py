@@ -16,7 +16,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('cameras_on', default_value='True', description='Open Pattern Projection process?'),
         DeclareLaunchArgument('inv_triang', default_value='True', description='Open Inverse Triangulation process?'),
-        DeclareLaunchArgument('description', default_value='False', description='Open description process?'),
+        DeclareLaunchArgument('description', default_value='True', description='Open description process?'),
         DeclareLaunchArgument('motor_topic', default_value='motor/angle', description='Topic of stepper motor angle'),
         DeclareLaunchArgument('num_images', default_value='10', description='Number of images to acquire'),
         IncludeLaunchDescription(
@@ -49,5 +49,20 @@ def generate_launch_description():
                             'right_image': 'right/image_raw',
                             'motor_topic': LaunchConfiguration('motor_topic'),
                             'n_images': LaunchConfiguration('num_images')}.items(),
-        )   
+        ),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('voris_description'), 'launch',
+                'lab_visualize.launch.py'])
+            ]),
+            condition=IfCondition(LaunchConfiguration('description'))
+        ),
+
+        Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge',
+            name='foxglove_bridge',
+            output='screen'
+        )
     ])
