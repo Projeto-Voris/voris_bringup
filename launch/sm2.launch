@@ -70,4 +70,17 @@
       <!-- Debayering nodelet -->
     </group>
   </group>
+
+      <!-- Node for left image rescaling -->
+    <node pkg="voris_bringup" type="image_rescale" name="image_l" output="screen">
+        <remap from="image_in" to="/SM2/left/image_raw"/>
+        <remap from="image_out" to="/SM2/left/image_rescaled"/>
+    </node>
+
+    <!-- Node for right image rescaling -->
+    <node pkg="voris_bringup" type="image_rescale" name="image_r" output="screen">
+        <remap from="image_in" to="/SM2/right/image_raw"/>
+        <remap from="image_out" to="/SM2/right/image_rescaled"/>
+    </node>
+
 </launch>
