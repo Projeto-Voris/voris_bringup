@@ -36,6 +36,7 @@ generate_messages(
 catkin_package(
         CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs
 )
+include_directories(${catkin_INCLUDE_DIRS})
 
 add_executable(image_rescale src/image_rescale.cpp)
 target_link_libraries(image_rescale ${catkin_LIBRARIES} ${OpenCV_LIBS})
