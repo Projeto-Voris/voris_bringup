@@ -14,24 +14,38 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        DeclareLaunchArgument('disparity', default_value='True', description='Open disparity process?'),
-        DeclareLaunchArgument('slam', default_value='True', description='Open SLAM process?'),
+        DeclareLaunchArgument('disparity', default_value='False', description='Open disparity process?'),
+        DeclareLaunchArgument('slam', default_value='False', description='Open SLAM process?'),
         DeclareLaunchArgument('description', default_value='False', description='Open description process?'),
+        DeclareLaunchArgument('inertial', default_value='True', description='Inertial SLAM?'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm2_camera.launch.py'])
                 ])
         ),
-
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('orbslam3_ros2'), 'launch',
                 'stereo.launch.py'])
             ]),
-            condition=IfCondition(LaunchConfiguration('slam')),
+            condition=IfCondition(LaunchConfiguration('slam')) and UnlessCondition(LaunchConfiguration('inertial')),
+            launch_arguments = {'pangolin':"False"}.items()
+        ),        
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('orbslam3_ros2'), 'launch',
+                'stereo_inertial_rescale.launch.py'])
+            ]),
+            condition=IfCondition(LaunchConfiguration('slam') and IfCondition(LaunchConfiguration('inertial'))),
             launch_arguments = {'pangolin':"False"}.items()
         ),
-
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('driver_stim300'), 'launch',
+                'stim300_driver.launch.py'])
+            ]),
+            condition=IfCondition(LaunchConfiguration('inertial'))
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('passive_stereo'), 'launch',
@@ -42,9 +56,14 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('voris_description'), 'launch',
-                'voris_visualize.launch.py'])
+                'sm2_visualize.launch.py'])
             ]),
             condition=IfCondition(LaunchConfiguration('description'))
         ),
-
+        Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge',
+            name='foxglove_bridge',
+            output='log'
+        )
     ])
