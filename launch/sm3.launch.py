@@ -32,8 +32,8 @@ def generate_launch_description():
             ]),
             launch_arguments = {'namespace':'SM3',
                                 'stepping_mode': 'full',
-                                'step_delay': '20',
-                                'steps_per_rev': '2048',
+                                'step_delay': '10',
+                                'steps_per_rev': '1024',
                                 'motor_angle_topic': LaunchConfiguration('motor_topic')}.items(),
 
         ),
