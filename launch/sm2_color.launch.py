@@ -12,21 +12,21 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-
+    
     return LaunchDescription([
         DeclareLaunchArgument('disparity', default_value='False', description='Open disparity process?'),
         DeclareLaunchArgument('slam', default_value='False', description='Open SLAM process?'),
         DeclareLaunchArgument('description', default_value='True', description='Open description process?'),
-        DeclareLaunchArgument('inertial', default_value='True', description='Inertial SLAM?'),
+        DeclareLaunchArgument('inertial', default_value='False', description='Inertial SLAM?'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm2_camera.launch.py'])
+                FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm2_color_camera.launch.py'])
                 ])
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('orbslam3_ros2'), 'launch',
-                'stereo.launch.py'])
+                'stereo_color.launch.py'])
             ]),
             condition=IfCondition(LaunchConfiguration('slam')),
             launch_arguments={'pangolin': "False"}.items()

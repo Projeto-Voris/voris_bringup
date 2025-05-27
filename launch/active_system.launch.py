@@ -36,7 +36,6 @@ def generate_launch_description():
                                 'step_delay': '10',
                                 'steps_per_rev': '1024',
                                 'motor_angle_topic': 'motor/angle'}.items(),
-
         ),
 
         IncludeLaunchDescription(
