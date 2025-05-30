@@ -19,10 +19,11 @@ def generate_launch_description():
         DeclareLaunchArgument('inertial', default_value='False', description='Open IMU data?'),
         DeclareLaunchArgument('disparity', default_value='False', description='Open Disparity process?'),
         DeclareLaunchArgument('description', default_value='True', description='Open Description process?'),
+        DeclareLaunchArgument('namespace', default_value='Passive', description='Namespace of the system'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm2_color_camera.launch.py'])]),
-                launch_arguments = {'namespace': 'Passive',
+                launch_arguments = {'namespace': LaunchConfiguration('namespace'),
                                     'cam_0_frame_id': 'Passive/left_camera_link',
                                     'cam_1_frame_id': 'Passive/right_camera_link',
                                     'camera_type': 'color',
@@ -35,7 +36,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('orbslam3_ros2'), 'launch', 'stereo_color.launch.py'])]),
             launch_arguments={
-                'namespace':'Passive',
+                'namespace':LaunchConfiguration('namespace'),
                 'pangolin': "False",
                 'rescale': 'True',
                 'child_frame_id': 'Passive/left_camera_link',
@@ -47,7 +48,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('orbslam3_ros2'), 'launch', 'stereo_inertial.launch.py'])]),
             launch_arguments={
-                'namespace':'Passive',
+                'namespace':LaunchConfiguration('namespace'),
                 'pangolin': "False",
                 'rescale': 'True',
                 'child_frame_id': 'Passive/left_camera_link',
@@ -58,7 +59,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('driver_stim300'), 'launch', 'stim300_driver.launch.py'])]),
-            launch_arguments={'namespace': 'Passive',}.items(),
+            launch_arguments={'namespace': LaunchConfiguration('namespace'),}.items(),
             condition=IfCondition(LaunchConfiguration('inertial'))
         ),
         IncludeLaunchDescription(
@@ -66,7 +67,7 @@ def generate_launch_description():
                 FindPackageShare('passive_stereo'), 'launch',
                 'triangulation.launch.py'])
             ]),
-            launch_arguments={'namespace': 'Passive',
+            launch_arguments={'namespace': LaunchConfiguration('namespace'),
                               'yaml_file_disp': 'sm2_20EM4-C.yaml'}.items(),
             condition=IfCondition(LaunchConfiguration('disparity'))
         ),
@@ -75,11 +76,18 @@ def generate_launch_description():
                 FindPackageShare('voris_description'), 'launch', 'mobile_bench.launch.py'])]),
             condition=IfCondition(LaunchConfiguration('description')),
         ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('jetson_power_monitor'), 'launch', 'jetson_power_stats.launch.py'])
+            ]),
+            launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
+        ),
+
 
         Node(
             package='foxglove_bridge',
             executable='foxglove_bridge',
-            namespace='Passive',
+            namespace=LaunchConfiguration('namespace'),
             name='foxglove_bridge',
             output='log'
         )
