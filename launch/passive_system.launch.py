@@ -3,7 +3,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, ExecuteProcess, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, ExecuteProcess, DeclareLaunchArgument, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch.conditions import IfCondition, UnlessCondition
@@ -31,7 +31,9 @@ def generate_launch_description():
                                     'cam1_serial': '22548033'}.items(),
             condition=IfCondition(LaunchConfiguration('cameras'))
         ),
-
+        TimerAction(
+            period=5.0,  # seconds
+            actions=[
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('orbslam3_ros2'), 'launch', 'stereo_color.launch.py'])]),
@@ -43,6 +45,8 @@ def generate_launch_description():
                 'parent_frame_id': 'base_link',
                 'frame_id': 'orbslam3'}.items(),
             condition=IfCondition(LaunchConfiguration('slam'))
+        )
+            ]
         ),        
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
@@ -78,7 +82,7 @@ def generate_launch_description():
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('jetson_power_monitor'), 'launch', 'jetson_power_stats.launch.py'])
+                FindPackageShare('jetson_power_monitor'), 'launch', 'agx_jetson_power.launch.py'])
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
         ),
