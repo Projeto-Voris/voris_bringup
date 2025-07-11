@@ -3,9 +3,10 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription, TimerAction, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
+
 
 def generate_launch_description():
 
@@ -35,9 +36,23 @@ def generate_launch_description():
             output='screen'
     )
 
+    trigger_control = TimerAction(
+            period=5.0,
+            actions=[
+            Node(
+                package='ros2_fringe_projection',
+                executable='param_controller.py',
+                name='param_controller',
+                namespace='SM4',
+                parameters=[{'namespace': 'SM4'}],
+                output='screen'
+        )]
+    )
+
     return LaunchDescription([
         foxglove,
         sm4_camera,
+        trigger_control,
         voris_description,        
         fringe_projection
     ])

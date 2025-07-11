@@ -3,7 +3,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, ExecuteProcess, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, ExecuteProcess, DeclareLaunchArgument, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch.conditions import IfCondition, UnlessCondition
@@ -93,7 +93,7 @@ def generate_launch_description():
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('jetson_power_monitor'), 'launch', 'jetson_power_stats.launch.py'])
+                FindPackageShare('jetson_power_monitor'), 'launch', 'nano_jetson_power.launch.py'])
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
         ),
@@ -103,5 +103,17 @@ def generate_launch_description():
             namespace=LaunchConfiguration('namespace'),
             name='foxglove_bridge',
             output='screen'
-        )
+        ),
+        TimerAction(
+            period=5.0,
+            actions=[
+            Node(
+                package='ros2_fringe_projection',
+                executable='param_controller.py',
+                name='param_controller',
+                namespace=LaunchConfiguration('namespace'),
+                parameters=[{'namespace': LaunchConfiguration('namespace')}],
+                output='screen'
+        )]
+        ),
     ])
