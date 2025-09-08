@@ -14,7 +14,7 @@ def generate_launch_description():
             os.path.join(
                 get_package_share_directory('ping360_sonar'),
                 'launch',
-                'ping360_launch.py'   
+                'ping360_bringup.launch.py'   
             )
         )
     )
@@ -36,7 +36,7 @@ def generate_launch_description():
             os.path.join(
                 get_package_share_directory('mavros_control'),
                 'launch',
-                'mavros.launch'
+                'demo.launch.py'
             )
         ),
         launch_arguments={
