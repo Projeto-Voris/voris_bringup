@@ -32,7 +32,7 @@ def generate_launch_description():
 
     # --- Controle (MAVROS + Controller) ---
     control = IncludeLaunchDescription(
-        XMLLaunchDescriptionSource(
+        PythonLaunchDescriptionSource(
             os.path.join(
                 get_package_share_directory('mavros_control'),
                 'launch',
@@ -43,6 +43,7 @@ def generate_launch_description():
             "fcu_url": "udp://0.0.0.0:14550@"   
         }.items()
     )
+
 
     return LaunchDescription([
         ping360,
