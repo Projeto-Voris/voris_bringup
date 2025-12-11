@@ -30,7 +30,8 @@ def generate_launch_description():
                                   'udp_address': '0.0.0.0',
                                   'frame': 'ping360_link',
                                   'publish_echo': 'false',
-                                  'publish_image': 'false',
+                                  'publish_image': 'true',
+                                  'angle_sector': '120',
                                   'baudnrate': '115200',
                                   }.items(),
                 condition=IfCondition(LaunchConfiguration('ping360'))
