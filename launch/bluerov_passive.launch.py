@@ -20,7 +20,7 @@ def generate_launch_description():
         DeclareLaunchArgument('imu', default_value='True', description='Open IMU process?'),
         DeclareLaunchArgument('disparity', default_value='True', description='Open Disparity process?'),
         DeclareLaunchArgument('description', default_value='True', description='Open Description process?'),
-        DeclareLaunchArgument('foxglove', default_value='True', description='Open Foxglove Bridge?'),
+        DeclareLaunchArgument('foxglove', default_value='False', description='Open Foxglove Bridge?'),
         DeclareLaunchArgument('namespace', default_value='Passive', description='Namespace of the system'),
         
         IncludeLaunchDescription(
@@ -47,7 +47,9 @@ def generate_launch_description():
                     'child_frame_id': 'Passive/left_camera_enu_link',
                     'parent_frame_id': 'base_link',
                     'frame_id': 'map',
-                    'tracked_points': 'True'}.items(),
+                    'ENU_publish':'True',
+                    'tracked_points': 'True',
+                    'pose': '/mavros/vision_pose/pose'}.items(),
                 condition=IfCondition(LaunchConfiguration('slam'))
             )
             ]
@@ -61,8 +63,9 @@ def generate_launch_description():
                 'pangolin': "False",
                 'rescale': 'True',
                 'child_frame_id': 'Passive/left_camera_link',
-                'parent_frame_id': 'base_link_ned',
-                'frame_id': 'orbslam3'}.items(),
+                'parent_frame_id': 'base_link',
+                'frame_id': 'orbslam3',
+                'tracked_points': 'True'}.items(),
             condition=IfCondition(LaunchConfiguration('inertial'))
         ),
 
@@ -97,6 +100,14 @@ def generate_launch_description():
                 FindPackageShare('jetson_power_monitor'), 'launch', 'nano_jetson_power.launch.py'])
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
+        ),
+
+        Node(
+            package='jetson_power_monitor',
+            executable='leak_sensor_publisher.py',
+            namespace=LaunchConfiguration('namespace'),
+            name='leak_sensor_publisher',
+            output='screen'
         ),
 
         Node(
