@@ -14,27 +14,22 @@ def generate_launch_description():
 
     return LaunchDescription([
         # --- Arguments ---
-        DeclareLaunchArgument('ping360', default_value='true', description='Launch Ping360 Sonar'),
         DeclareLaunchArgument('gscam2', default_value='true', description='Launch GSCam2 Camera'),
         DeclareLaunchArgument('mavros', default_value='true', description='Launch mavros_control'),
+        DeclareLaunchArgument('sonar3d', default_value='true', description='Launch Sonar3D Node'),
         DeclareLaunchArgument('namespace', default_value='bluerov2', description='Namespace of the MAVROS system'),
 
 
-        # --- Sonar Ping360 ---
+
+        # --- Sonar3D ---
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(PathJoinSubstitution([
-                FindPackageShare('ping360_sonar'), 'launch', 'ping360_bringup.launch.py'])
-                ),
-                launch_arguments={'namespace': LaunchConfiguration('namespace'),
-                                  'connection_type': 'udp',
-                                  'udp_address': '0.0.0.0',
-                                  'frame': 'ping360_link',
-                                  'publish_echo': 'false',
-                                  'publish_image': 'true',
-                                  'angle_sector': '120',
-                                  'baudnrate': '115200',
-                                  }.items(),
-                condition=IfCondition(LaunchConfiguration('ping360'))
+                FindPackageShare('sonar3d'), 'launch', 'sonar3d.launch.py'])
+            ),
+            launch_arguments={'namespace': PathJoinSubstitution([LaunchConfiguration('namespace'),'sonar3d']),
+                              'ip': '192.168.2.30',
+                              'speed_of_sound': '1491'}.items(),
+            condition=IfCondition(LaunchConfiguration('sonar3d'))
         ),
 
         # --- Câmera GSCam2 ---
@@ -44,7 +39,7 @@ def generate_launch_description():
                 ),
             launch_arguments={
                 'namespace': LaunchConfiguration('namespace'),
-                'image_topic': 'image_raw',
+                'image_topic': 'image_raw/compressed',
                 'camera_info': 'camera_info'}.items(),
             condition=IfCondition(LaunchConfiguration('gscam2'))
         ),
