@@ -16,8 +16,9 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('cameras', default_value='True', description='Open Pattern Projection process?'),
         DeclareLaunchArgument('sm3', default_value='True', description='Open Inverse Triangulation process?'),
-        DeclareLaunchArgument('sm4', default_value='True', description='Open description process?'),
+        DeclareLaunchArgument('sm4', default_value='False', description='Open description process?'),
         DeclareLaunchArgument('namespace', default_value='Active', description='Namespace of system'),
+        DeclareLaunchArgument('step_delay', default_value='10', description='Stepper motor delay time [ms]'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
                 FindPackageShare('spinnaker_camera_driver'), 'launch', 'sm4_camera.launch.py'])
@@ -34,8 +35,8 @@ def generate_launch_description():
             ]),
             launch_arguments = {'namespace':LaunchConfiguration('namespace'),
                                 'stepping_mode': 'full',
-                                'step_delay': '10',
-                                'steps_per_rev': '1024',
+                                'step_delay': LaunchConfiguration('step_delay'),
+                                'steps_per_rev': '2048',
                                 'motor_angle_topic': 'motor/angle'}.items(),
         ),
 
@@ -51,8 +52,7 @@ def generate_launch_description():
                             'camera_frame_id': 'Active/left_camera_link',
                             'point_cloud': 'SM3/pointcloud',
                             'yaml_path': '/home/jetson/ros2_ws/src/ros2_fringe_projection/params/SM4.yaml',
-                            
-                            'n_images': '15'}.items(),
+                            'n_images': '10'}.items(),
             condition=IfCondition(LaunchConfiguration('sm3'))
         ),
 
@@ -76,9 +76,6 @@ def generate_launch_description():
             ]),
             launch_arguments={
                 'namespace': LaunchConfiguration('namespace'),
-                'xy_step': '5',
-                'z_step': '0.1',
-                'num_splits': '3',
                 'camera_frame_id': 'Active/left_camera_link',
                 'point_cloud': 'SM4/pointcloud'
                 }.items(),
@@ -97,13 +94,15 @@ def generate_launch_description():
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
         ),
+
         Node(
             package='foxglove_bridge',
             executable='foxglove_bridge',
             namespace=LaunchConfiguration('namespace'),
             name='foxglove_bridge',
-            output='screen'
+            output='log'
         ),
+
         TimerAction(
             period=5.0,
             actions=[
