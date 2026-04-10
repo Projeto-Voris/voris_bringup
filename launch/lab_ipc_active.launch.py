@@ -134,11 +134,34 @@ def launch_setup(context, *args, **kwargs):
         make_resizer_node("right_debug", "sync/right/image_raw","sync/right/debug/image_raw")
     ]
 
+    if LaunchConfiguration('StructuredLight').perform(context) == 'true':
+        composable_nodes.append(
+            ComposableNode(
+                package='ros2_active_stereo',
+                plugin='StereoProcessNode',
+                name='structured_light_node',
+                namespace=LaunchConfiguration('namespace'),
+                parameters=[{
+                    'monitor_name': 'Monitor_0',
+                    'pixel_per_fringe': 64,
+                    'fringe_steps': 8,
+                    'image_color': 'blue',
+                    'camera_hz': 20,
+                    'skip_trigger': 3,
+                }],
+                remappings=[
+                    ('left/image_raw', 'sync/left/image_raw'),
+                    ('right/image_raw', 'sync/right/image_raw'),
+                    ('camera_info', 'sync/left/camera_info'),
+                ],
+                extra_arguments=[{'use_intra_process_comms': True}]
+            ))
+
     container = ComposableNodeContainer(
         name='cam_sync_container',
         namespace=LaunchConfiguration('namespace'),
         package='rclcpp_components',
-        executable='component_container',
+        executable='component_container_mt',
         composable_node_descriptions=composable_nodes,
         output='screen',
     )
@@ -159,6 +182,7 @@ def generate_launch_description():
         # Argumentos nodos extras
         DeclareLaunchArgument('description', default_value='true', description='Ativar visualização da descrição?'),
 
+        DeclareLaunchArgument('StructuredLight', default_value='true', description='Ativar Structured Light?'),
         # # Nó de robot_description (visualização)
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
