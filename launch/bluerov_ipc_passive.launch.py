@@ -22,7 +22,7 @@ camera_params = {
         'gain': 0,
         'exposure_auto': 'Continuous',
         'exposure_time': 16667,
-        'frame_rate': 59.99,
+        'frame_rate': 25.99,
         'frame_rate_enable': True,
         'auto_exposure_lower_limit': 30,
         'auto_exposure_upper_limit': 33333.84,
@@ -132,10 +132,9 @@ def launch_setup(context, *args, **kwargs):
         make_resizer_node(f"{name_1}_debug", f"{name_1}/image_raw",f"{name_1}/debug/image_raw")
 
     ]
+    # composable_nodes = []
     
-    if LaunchConfig('rectify_images').perform(context) == 'true':
-        composable_nodes.append(make_rectify_node(name_0))
-        composable_nodes.append(make_rectify_node(name_1))
+
 
     # 2. Configuração do SLAM Node   
     if LaunchConfig('slam').perform(context) == 'true':
@@ -175,6 +174,7 @@ def launch_setup(context, *args, **kwargs):
                         'do_rectify': True,
                         'rescale': True,
                         'ENU_publish': True,
+                        'tf_publish': False,
                         'frame_id': 'map',
                         'parent_frame_id': 'base_link',
                         'child_frame_id': frame_0,
@@ -191,60 +191,61 @@ def launch_setup(context, *args, **kwargs):
 
     # 3. Configuração do Saver Node (Opcional)
     if LaunchConfig('enable_saver').perform(context) == 'true':
-        saver_node = ComposableNode(
-            package='orbslam3_ros2', # Nome do seu pacote
-            plugin='orbslam3_ros2::StereoImageSaverNode',
-            name='stereo_saver_node',
-            namespace=LaunchConfig('namespace'),
-            parameters=[{
-                'save_directory': LaunchConfig('save_directory')
-            }],
-            remappings=[
-                ('camera/left', topic_left),
-                ('camera/right', topic_right)
-            ],
-            extra_arguments=[{'use_intra_process_comms': True}]
-        )
-        composable_nodes.append(saver_node)
+          composable_nodes.append(ComposableNode(
+                                    package='voris_log', # Nome do seu pacote
+                                    plugin='voris_log::DataSaverNode',
+                                    name='stereo_sonar_save_node',
+                                    namespace=LaunchConfig('namespace'),
+                                    parameters=[{
+                                        'save_directory': LaunchConfig('save_directory')
+                                    }],
+                                    remappings=[
+                                        ('camera/left', f"{name_0}/image_raw"),
+                                        ('camera/right', f"{name_1}/image_raw"),
+                                        ('sonar_point_cloud', 'sonar_point_cloud')
+                                    ],
+                                    extra_arguments=[{'use_intra_process_comms': True}]
+                                ))
+
 
     if LaunchConfig('disparity').perform(context) == 'true':
-        retinify_node = ComposableNode(
-            package='passive_stereo',
-            plugin='RetinifyDisparityNode',
-            name='retinify_disparity_node',
-            namespace=LaunchConfig('namespace'),
-            parameters=[{
-                'debug_image': True,
-                'publish_disp': True
-            }],
-            remappings=[
-                ('left/image_rect', f"{name_0}/image_rect"),
-                ('left/camera_info', f"{name_0}/camera_info"),
-                ('right/image_rect', f"{name_1}/image_rect"),
-                ('right/camera_info', f"{name_1}/camera_info")
-            ],
-            extra_arguments=[{'use_intra_process_comms': True}]
-        )
-        triangulation_node = ComposableNode(
-            package='passive_stereo',
-            plugin='TriangulationNode',
-            name='triangulation_node',
-            namespace=LaunchConfig('namespace'),
-            parameters=[{
-                'frame_id': frame_0,
-                'sampling_factor': 0.2,
-                'crop_factor': 0.6,
-            }],
-            remappings=[
-                ('left/image_rect', f"{name_0}/image_rect"),
-                ('right/camera_info', f"{name_1}/camera_info"),
-                ('disparity/image', 'disparity/image'),
-                ('pointcloud', 'disparity/pointcloud')
-            ],
-            extra_arguments=[{'use_intra_process_comms': True}]
-        )
-        composable_nodes.append(retinify_node)
-        composable_nodes.append(triangulation_node)
+        composable_nodes.append(make_rectify_node(name_0))
+        composable_nodes.append(make_rectify_node(name_1))
+        composable_nodes.append(ComposableNode(
+                                    package='passive_stereo',
+                                    plugin='RetinifyDisparityNode',
+                                    name='retinify_disparity_node',
+                                    namespace=LaunchConfig('namespace'),
+                                    parameters=[{
+                                        'debug_image': True,
+                                        'publish_disp': True
+                                    }],
+                                    remappings=[
+                                        ('left/image_rect', f"{name_0}/image_rect"),
+                                        ('left/camera_info', f"{name_0}/camera_info"),
+                                        ('right/image_rect', f"{name_1}/image_rect"),
+                                        ('right/camera_info', f"{name_1}/camera_info")
+                                    ],
+                                    extra_arguments=[{'use_intra_process_comms': True}]
+                                ))
+        composable_nodes.append(ComposableNode(
+                                    package='passive_stereo',
+                                    plugin='TriangulationNode',
+                                    name='triangulation_node',
+                                    namespace=LaunchConfig('namespace'),
+                                    parameters=[{
+                                        'frame_id': frame_0,
+                                        'sampling_factor': 0.1,
+                                        'crop_factor': 1.0 ,
+                                    }],
+                                    remappings=[
+                                        ('left/image_rect', f"{name_0}/image_rect"),
+                                        ('right/camera_info', f"{name_1}/camera_info"),
+                                        ('disparity/image', 'disparity/image'),
+                                        ('pointcloud', 'disparity/pointcloud')
+                                    ],
+                                    extra_arguments=[{'use_intra_process_comms': True}]
+                                ))
 
     # 4. Container Principal
     container = ComposableNodeContainer(
@@ -255,7 +256,6 @@ def launch_setup(context, *args, **kwargs):
         composable_node_descriptions=composable_nodes,
         output='screen',
     )
-
     return [container]
 
 def generate_launch_description():
@@ -281,15 +281,14 @@ def generate_launch_description():
         
         # Argumentos do Saver
         DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
-        DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_images', description='Pasta para salvar imagens'),
+        DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_sonar_data', description='Pasta para salvar imagens'),
 
         # Argumento de disparidade
-        DeclareLaunchArgument('rectify_images', default_value='true', description='Ativar retificação das imagens?'),
-        DeclareLaunchArgument('disparity', default_value='true', description='Ativar nó de disparidade?'),
+        DeclareLaunchArgument('disparity', default_value='false', description='Ativar nó de disparidade?'),
 
         # Argumentos nodos extras
         DeclareLaunchArgument('description', default_value='true', description='Ativar visualização da descrição?'),
-        DeclareLaunchArgument('sonar3d', default_value='false', description='Ativar Sonar 3d?'),
+        DeclareLaunchArgument('sonar3d', default_value='true', description='Ativar Sonar 3d?'),
 
         # Nó de robot_description (visualização)
         IncludeLaunchDescription(
@@ -309,8 +308,11 @@ def generate_launch_description():
         # Nó de recepção do Sonar 3D-15
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([FindPackageShare('sonar3d'), 'launch', 'sonar3d.launch.py'])]),
-            launch_arguments={'namespace': LaunchConfiguration('namespace'),
-                              'ip': '192.168.2.30'}.items(),
+            launch_arguments={#'namespace': LaunchConfiguration('namespace'),
+                              'ip': '192.168.2.30', #Static Sonar IP
+                              'host_ip': '192.168.2.15', # Jetson Orin Nano
+                              'speed_of_sound': '1493', #Freshwater
+                              'max_dist': '40'}.items(),
             condition=IfCondition(LaunchConfiguration('sonar3d')),
         ),
 
