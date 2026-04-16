@@ -113,8 +113,6 @@ def make_resizer_node(name, input_topic, output_topic):
         extra_arguments=[{'use_intra_process_comms': True}]
     )
 
-
-
 def make_camera_node(context):
     return ComposableNode(
                 package='spinnaker_synchronized_camera_driver',
@@ -125,6 +123,25 @@ def make_camera_node(context):
 
                 extra_arguments=[{'use_intra_process_comms': True}],
             )
+
+def make_inv_correlation_node(name, left_input_topic, right_input_topic):
+    return ComposableNode(
+        package='stereo_active',
+        plugin='stereo_active::InvCorrelationNode',        
+        name=name,
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[{
+            'num_images': LaunchConfiguration('num_images'),
+            'steps': LaunchConfiguration('steps')
+        }],
+        remappings=[
+            ('left/image', left_input_topic),
+            ('right/image', right_input_topic)
+        ],
+        extra_arguments=[{'use_intra_process_comms': True}],
+    )
+
+
 
 def launch_setup(context, *args, **kwargs):
     # Lista de componentes (inicia com as câmeras)
@@ -144,10 +161,13 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[{
                     'monitor_name': 'Monitor_0',
                     'pixel_per_fringe': 64,
-                    'fringe_steps': 8,
+                    'fringe_steps': 12,
                     'image_color': 'blue',
                     'camera_hz': 20,
                     'skip_trigger': 3,
+                    'save_image': False,
+                    'save_path': '/tmp/structured-light',
+                    'debug': True,
                 }],
                 remappings=[
                     ('left/image_raw', 'sync/left/image_raw'),
@@ -156,6 +176,10 @@ def launch_setup(context, *args, **kwargs):
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}]
             ))
+
+    if LaunchConfiguration('InverseTriangulation').perform(context) == 'true':
+        sm3_node = make_inv_correlation_node('inv_correlation_node','sync/left/image_raw','sync/right/image_raw')
+        composable_nodes.append(sm3_node)
 
     container = ComposableNodeContainer(
         name='cam_sync_container',
@@ -174,7 +198,11 @@ def generate_launch_description():
 
         DeclareLaunchArgument('namespace', default_value='Active', description='ROS namespace'),
         
-        
+        # SM3
+        DeclareLaunchArgument('num_images', default_value='10', description='Numero de imagens por varredura'),
+        DeclareLaunchArgument('steps', default_value='10', description='Passos do motor'),
+        DeclareLaunchArgument('InverseTriangulation', default_value='false', description='Ativar SM3'),
+
         # Argumentos do Saver
         DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
         DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_images', description='Pasta para salvar imagens'),
@@ -207,6 +235,37 @@ def generate_launch_description():
                 FindPackageShare('jetson_power_monitor'), 'launch', 'nano_jetson_power.launch.py'])
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
+        ),
+
+        # Nó de triangulação do Structured Light (SM4)
+        # IncludeLaunchDescription(
+        #     PythonLaunchDescriptionSource([PathJoinSubstitution([
+        #         FindPackageShare('ros2_active_stereo'), 'launch', 'triangulation.launch.py'])
+        #     ]),
+        #     launch_arguments = {'namespace':LaunchConfiguration('namespace'),
+        #                         'mod_tresh': '50',
+        #                         'rad_tresh': '0.06',
+        #                         'neighbours': '15',
+        #                         'radius': '5',
+        #                         'camera_frame_id': 'Active/left_camera_link',
+        #                         'yaml_path': '/home/jetson/ros2_ws/src/ros2_active_stereo/ros2_active_stereo/config/lab_active.yaml',
+        #                         'triangulated_pointcloud': 'SM4/pointcloud',
+        #                         'disparity_pointcloud': '/Passive/disparity/pointcloud'}.items(),
+            
+        #     condition=IfCondition(LaunchConfiguration('StructuredLight'))
+        # ),
+        # # Nó que coordena o SM3
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('stereo_active'), 'launch',
+                'inverse_triangulation.launch.py'])
+            ]),
+            launch_arguments = {'namespace':LaunchConfiguration('namespace'),
+                            'camera_frame_id': 'Active/left_camera_link',
+                            'point_cloud': 'SM3/pointcloud',
+                            'yaml_path': '/home/jetson/ros2_ws/src/ros2_fringe_projection/params/SM4.yaml',
+                            'n_images': LaunchConfiguration('num_images')}.items(),
+            condition=IfCondition(LaunchConfiguration('InverseTriangulation'))
         ),
 
         OpaqueFunction(function=launch_setup),

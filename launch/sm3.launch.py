@@ -59,6 +59,12 @@ def generate_launch_description():
             condition=IfCondition(LaunchConfiguration('description'))
         ),
 
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('jetson_power_monitor'), 'launch', 'nano_jetson_power.launch.py'])
+            ]),
+            launch_arguments={'namespace': 'SM3'}.items(),
+        ),
         Node(
             package='foxglove_bridge',
             executable='foxglove_bridge',
