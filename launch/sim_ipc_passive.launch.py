@@ -46,6 +46,17 @@ def make_rectify_node(name):
         extra_arguments=[{'use_intra_process_comms': True}]
     )
 
+def make_gazebo_bridge_node(gz_bridge_file):
+    return ComposableNode(
+                        package='ros_gz_bridge',
+                        plugin='ros_gz_bridge::RosGzBridge',
+                        parameters=[{
+                            'config_file': gz_bridge_file,
+                            'use_sim_time': True, # Vital para sincronia com Gazebo 
+                            'use_intra_process_comms': True # Habilita Zero-Copy [cite: 355, 410]
+                        }]
+            )
+                
 
 
 def launch_setup(context, *args, **kwargs):
@@ -54,10 +65,11 @@ def launch_setup(context, *args, **kwargs):
     frame_0 = LaunchConfiguration('cam_0_frame_id').perform(context)
     frame_1 = LaunchConfiguration('cam_1_frame_id').perform(context)
     name_1 = LaunchConfiguration('cam_1_name').perform(context)
-
+    gazebo_bridge_file = LaunchConfiguration('gazebo_bridge_file').perform(context)
 
     # Lista de componentes (inicia com as câmeras)
     composable_nodes = [
+        make_gazebo_bridge_node(gazebo_bridge_file)
         # make_resizer_node(f"{name_0}_debug", f"{name_0}/image_raw",f"{name_0}/debug/image_raw"),
         # make_resizer_node(f"{name_1}_debug", f"{name_1}/image_raw",f"{name_1}/debug/image_raw")
     ]
@@ -130,7 +142,7 @@ def launch_setup(context, *args, **kwargs):
             remappings=[
                 ('camera/left', topic_left),
                 ('camera/right', topic_right)
-            ],
+            ],  
             extra_arguments=[{'use_intra_process_comms': True}]
         )
         composable_nodes.append(saver_node)
@@ -219,11 +231,13 @@ def generate_launch_description():
         # Argumentos do SLAM
         DeclareLaunchArgument('slam', default_value='true', description='Usar SLAM?'),
         DeclareLaunchArgument('inertial', default_value='false', description='Usar SLAM Stereo inertial?'),
-        DeclareLaunchArgument('voc_file', default_value='/home/shared/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', 
+        DeclareLaunchArgument('voc_file', default_value='/home/daniel/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', 
                   description='Caminho para o vocabulário ORB'),
-        DeclareLaunchArgument('settings_file', default_value='/home/shared/ros2_ws/src/orca5/orca_bringup/cfg/sim.yaml', 
+        DeclareLaunchArgument('settings_file', default_value='/home/daniel/ros2_ws/src/orca5/orca_bringup/cfg/sim.yaml', 
                   description='Caminho para o settings .yaml'),
-        
+        DeclareLaunchArgument('gazebo_bridge_file', default_value=PathJoinSubstitution([
+            FindPackageShare('orca_bringup'), 'cfg', 'gzbridge_config.yaml'
+        ]), description='Caminho para o arquivo de configuração do Gazebo Bridge'), 
         # Argumentos do Saver
         DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
         DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_images', description='Pasta para salvar imagens'),
@@ -231,15 +245,8 @@ def generate_launch_description():
         # Argumento de disparidade
         DeclareLaunchArgument('disparity', default_value='true', description='Ativar nó de disparidade?'),
 
-        # Argumentos nodos extras
-        DeclareLaunchArgument('description', default_value='true', description='Ativar visualização da descrição?'),
-
+        
         # Nó de robot_description (visualização)
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('voris_description'), 'launch', 'voris_visualize.launch.py'])]),
-            condition=IfCondition(LaunchConfiguration('description')),
-        ),
 
         OpaqueFunction(function=launch_setup),
     ])
