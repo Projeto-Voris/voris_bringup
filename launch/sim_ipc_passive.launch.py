@@ -7,7 +7,8 @@ from launch_ros.actions import ComposableNodeContainer,LoadComposableNodes
 from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-
+from datetime import datetime
+import os
 
 def make_resizer_node(name, input_topic, output_topic):
     return ComposableNode(
@@ -66,6 +67,7 @@ def launch_setup(context, *args, **kwargs):
     frame_1 = LaunchConfiguration('cam_1_frame_id').perform(context)
     name_1 = LaunchConfiguration('cam_1_name').perform(context)
     gazebo_bridge_file = LaunchConfiguration('gazebo_bridge_file').perform(context)
+    save_path = LaunchConfiguration('save_directory').perform(context)
 
     # Lista de componentes (inicia com as câmeras)
     composable_nodes = [
@@ -77,6 +79,24 @@ def launch_setup(context, *args, **kwargs):
 
     
     if LaunchConfiguration('slam').perform(context) == 'true':
+        save_node = ComposableNode(
+                package='voris_log',
+                plugin='voris_log::ImageSaver',
+                name='stereo_image_saver',
+                namespace=LaunchConfiguration('namespace'),
+                parameters=[{
+                    'saving_path': f'{save_path}_stereo',
+                }],
+                remappings=[
+                    ('/camera_1/image_raw', f"{name_0}/image_raw"),
+                    ('/camera_2/image_raw', f"{name_1}/image_raw"),
+                    ('/odometry', '/mavros/local_position/odom')
+                ],
+                extra_arguments=[{'use_intra_process_comms': True}]
+
+            )
+        composable_nodes.append(save_node)
+
         if LaunchConfiguration('inertial').perform(context) == 'true':
             slam_node = ComposableNode(
                 package='orbslam3_ros2',
@@ -118,6 +138,7 @@ def launch_setup(context, *args, **kwargs):
                         'frame_id': 'map',
                         'parent_frame_id': 'base_link',
                         'child_frame_id': frame_0,
+                        'tf_publish': False,
                         'use_sim_time': True,
                     }],
                     remappings=[
@@ -130,22 +151,24 @@ def launch_setup(context, *args, **kwargs):
             composable_nodes.append(slam_node)
     
     # 3. Configuração do Saver Node (Opcional)
-    if LaunchConfiguration('enable_saver').perform(context) == 'true':
-        saver_node = ComposableNode(
-            package='orbslam3_ros2', # Nome do seu pacote
-            plugin='orbslam3_ros2::StereoImageSaverNode',
-            name='stereo_saver_node',
-            namespace=LaunchConfiguration('namespace'),
-            parameters=[{
-                'save_directory': LaunchConfiguration('save_directory')
-            }],
-            remappings=[
-                ('camera/left', topic_left),
-                ('camera/right', topic_right)
-            ],  
-            extra_arguments=[{'use_intra_process_comms': True}]
-        )
-        composable_nodes.append(saver_node)
+    if  LaunchConfiguration('save_sonar_stereo').perform(context) == 'true':
+        save_stereo = ComposableNode(
+                                    package='voris_log', # Nome do seu pacote
+                                    plugin='voris_log::DataSaverNode',
+                                    name='stereo_sonar_image_saver',
+                                    namespace=LaunchConfiguration('namespace'),
+                                    parameters=[{
+                                        'save_directory': f'{save_path}_stereo_sonar',
+                                    }],
+                                    remappings=[
+                                        ('camera/left', f"{name_0}/image_raw"),
+                                        ('camera/right', f"{name_1}/image_raw"),
+                                        ('sonar_point_cloud', '/model/bluerov2/sonar3d/pointcloud'),
+                                        ('odometry', '/mavros/local_position/odom')
+                                    ],
+                                    extra_arguments=[{'use_intra_process_comms': True}]
+                                )
+        composable_nodes.append(save_stereo)
 
     if LaunchConfiguration('disparity').perform(context) == 'true':
         composable_nodes_2.append(make_rectify_node(name_0))
@@ -177,8 +200,9 @@ def launch_setup(context, *args, **kwargs):
             namespace=LaunchConfiguration('namespace'),
             parameters=[{
                 'frame_id': frame_0,
-                'sampling_factor': 0.5,
-                'crop_factor': 0.7,
+                'parent_frame': 'base_link',
+                'sampling_factor': 0.2,
+                'crop_factor': 0.5,
                 'use_sim_time': True,
             }],
             remappings=[
@@ -228,25 +252,22 @@ def generate_launch_description():
         DeclareLaunchArgument('cam_1_frame_id', default_value='Passive/right_camera_link', description='Frame ID for camera 1'),
         DeclareLaunchArgument('namespace', default_value='Passive', description='ROS namespace'),
         
-        # Argumentos do SLAM
+        # Inicalização
         DeclareLaunchArgument('slam', default_value='true', description='Usar SLAM?'),
         DeclareLaunchArgument('inertial', default_value='false', description='Usar SLAM Stereo inertial?'),
-        DeclareLaunchArgument('voc_file', default_value='/home/daniel/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', 
-                  description='Caminho para o vocabulário ORB'),
-        DeclareLaunchArgument('settings_file', default_value='/home/daniel/ros2_ws/src/orca5/orca_bringup/cfg/sim.yaml', 
-                  description='Caminho para o settings .yaml'),
-        DeclareLaunchArgument('gazebo_bridge_file', default_value=PathJoinSubstitution([
-            FindPackageShare('orca_bringup'), 'cfg', 'gzbridge_config.yaml'
-        ]), description='Caminho para o arquivo de configuração do Gazebo Bridge'), 
-        # Argumentos do Saver
-        DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
-        DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_images', description='Pasta para salvar imagens'),
-
-        # Argumento de disparidade
+        # DeclareLaunchArgument('mavros', default_value='true', description='Usar pose do MAVROS para SLAM? (Apenas para SLAM sem IMU)'),
+        # DeclareLaunchArgument('gazebo', default_value='true', description='Abrir Gazebo GUI'),
+        # DeclareLaunchArgument('rviz', default_value='true', description='Abrir RViz'),
+        # DeclareLaunchArgument('description', default_value='true', description='Publicar descrição do robô?'),
         DeclareLaunchArgument('disparity', default_value='true', description='Ativar nó de disparidade?'),
 
-        
-        # Nó de robot_description (visualização)
+        DeclareLaunchArgument('voc_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', description='Caminho para o vocabulário ORB'),
+        DeclareLaunchArgument('settings_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/orca5/orca_bringup/cfg/sim.yaml', description='Caminho para o settings .yaml'),
+        DeclareLaunchArgument('gazebo_bridge_file', default_value=PathJoinSubstitution([ FindPackageShare('orca_bringup'), 'cfg', 'gzbridge_config.yaml' ]), description='Caminho para o arquivo de configuração do Gazebo Bridge'), 
+        # Argumentos do Saver
+        DeclareLaunchArgument('save_sonar_stereo', default_value='false', description='Ativar gravação de imagens e sonar'),
+        DeclareLaunchArgument('save_stereo', default_value='false', description='Ativar salvamento imagens'),
+        DeclareLaunchArgument('save_directory', default_value=f'/home/{os.getenv("USER")}/Documents/{datetime.now().strftime("%Y%m%d%H%M")}', description='Pasta para salvar imagens'),
 
         OpaqueFunction(function=launch_setup),
     ])
