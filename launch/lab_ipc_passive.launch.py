@@ -7,10 +7,12 @@ from launch_ros.actions import ComposableNodeContainer,LoadComposableNodes
 from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-
+import os
+import datetime
 # --- Configurações da Câmera ---
 camera_params = {
     'debug': False,
+    'quiet': True,
     'compute_brightness': True,
     'dump_node_map': False,
     'adjust_timestamp': False,
@@ -18,8 +20,8 @@ camera_params = {
     'gain': 0,
     'frame_rate_enable': True,
     'frame_rate': 30,
-    'exposure_auto': 'Continuous',		 
-    # 'exposure_time':16000,
+    'exposure_auto': 'Once',		 
+    'exposure_time':16667,
     'auto_exposure_lower_limit':30 ,
     'auto_exposure_upper_limit':33333.33,
     'line2_selector': 'Line2',
@@ -49,8 +51,8 @@ def make_resizer_node(name, input_topic, output_topic):
         name=name,
         namespace=LaunchConfiguration('namespace'),
         parameters=[{
-            'resize_width': 480,
-            'resize_height': 360,
+            'resize_width': 800,
+            'resize_height': 600,
             'out_topic/compressed/jpeg_quality': 50 
         }],
         remappings=[
@@ -124,7 +126,7 @@ def launch_setup(context, *args, **kwargs):
         make_resizer_node(f"{name_0}_debug", f"{name_0}/image_raw",f"{name_0}/debug/image_raw"),
         make_resizer_node(f"{name_1}_debug", f"{name_1}/image_raw",f"{name_1}/debug/image_raw")
     ]
-    composable_nodes_2 = [] # Container separado para os nós de retificação e disparidade
+    composable_nodes_2 = [make_rectify_node(name_0), make_rectify_node(name_1)] # Container separado para os nós de retificação e disparidade
 
     
     if LaunchConfiguration('slam').perform(context) == 'true':
@@ -148,7 +150,7 @@ def launch_setup(context, *args, **kwargs):
                 remappings=[
                     ('camera/left', f"{name_0}/image_raw"),
                     ('camera/right', f"{name_1}/image_raw"),
-                    ('imu', '/imu/data') # Supondo que o IMU esteja publicando neste tópico
+                    ('imu', '/mavros/imu/data_raw') # Supondo que o IMU esteja publicando neste tópico
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}]
             )
@@ -161,10 +163,10 @@ def launch_setup(context, *args, **kwargs):
                     parameters=[{
                         'voc_file': LaunchConfiguration('voc_file'),
                         'settings_file': LaunchConfiguration('settings_file'),
-                        'do_rectify': True,
-                        'rescale': True,
+                        'resize_factor': 0.5,
                         'ENU_publish': True,
                         'tracked_points': False,
+                        'clahe': LaunchConfiguration('use_clahe'),
                         'frame_id': 'map',
                         'parent_frame_id': 'base_link',
                         'child_frame_id': frame_0
@@ -188,16 +190,15 @@ def launch_setup(context, *args, **kwargs):
                 'save_directory': LaunchConfiguration('save_directory')
             }],
             remappings=[
-                ('camera/left', topic_left),
-                ('camera/right', topic_right)
+                ('camera/left', f"{name_0}/image_raw"),
+                ('camera/right', f"{name_1}/image_raw")
             ],
             extra_arguments=[{'use_intra_process_comms': True}]
         )
         composable_nodes.append(saver_node)
 
     if LaunchConfiguration('disparity').perform(context) == 'true':
-        composable_nodes_2.append(make_rectify_node(name_0))
-        composable_nodes_2.append(make_rectify_node(name_1))
+        
 
         retinify_node = ComposableNode(
             package='passive_stereo',
@@ -223,6 +224,7 @@ def launch_setup(context, *args, **kwargs):
             namespace=LaunchConfiguration('namespace'),
             parameters=[{
                 'frame_id': frame_0,
+                'parent_frame': 'base_link',
                 'sampling_factor': 0.2,
                 'crop_factor': 0.7,
             }],
@@ -277,24 +279,18 @@ def generate_launch_description():
         DeclareLaunchArgument('cam_1_frame_id', default_value='Passive/right_camera_link', description='Frame ID for camera 1'),
         DeclareLaunchArgument('namespace', default_value='Passive', description='ROS namespace'),
         
-        # Argumentos do SLAM
-        DeclareLaunchArgument('slam', default_value='true', description='Usar SLAM?'),
-        DeclareLaunchArgument('inertial', default_value='false', description='Usar SLAM Stereo inertial?'),
-        DeclareLaunchArgument('voc_file', default_value='/home/jetson/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', 
+        DeclareLaunchArgument('voc_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/vocabulary/ORBvoc.txt', 
                   description='Caminho para o vocabulário ORB'),
-        DeclareLaunchArgument('settings_file', default_value='/home/jetson/ros2_ws/src/orbslam3_ros2/orbslam3_ros2/config/lab_bw.yaml', 
+        DeclareLaunchArgument('settings_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/voris_bringup/config/20260717_passivo_slam.yaml', 
                   description='Caminho para o settings .yaml'),
         
-        # Argumentos do Saver
+        DeclareLaunchArgument('slam', default_value='true', description='Usar SLAM?'),
+        DeclareLaunchArgument('inertial', default_value='false', description='Usar SLAM Stereo inertial?'),
         DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
-        DeclareLaunchArgument('save_directory', default_value='/home/jetson/Documents/stereo_images', description='Pasta para salvar imagens'),
-
-        # Argumento de disparidade
+        DeclareLaunchArgument('save_directory', default_value=f'/home/{os.getenv("USER")}/Documents/{datetime.datetime.now().strftime("%Y%m%d_%H%M")}', description='Pasta para salvar imagens'),
         DeclareLaunchArgument('disparity', default_value='true', description='Ativar nó de disparidade?'),
-
-        # Argumentos nodos extras
         DeclareLaunchArgument('description', default_value='true', description='Ativar visualização da descrição?'),
-
+        DeclareLaunchArgument('use_clahe', default_value='false', description='Ativar CLAHE para SLAM?'),
         # Nó de robot_description (visualização)
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
@@ -305,7 +301,7 @@ def generate_launch_description():
         # Nó de monitoramento de energia (para o Jetson AGX)
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
-                FindPackageShare('jetson_power_monitor'), 'launch', 'agx_jetson_power.launch.py'])
+                FindPackageShare('jetson_power_monitor'), 'launch', 'nano_jetson_power.launch.py'])
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
         ),
