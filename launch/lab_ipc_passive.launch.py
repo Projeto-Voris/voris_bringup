@@ -1,9 +1,10 @@
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
 from launch.conditions import IfCondition
-from launch_ros.actions import ComposableNodeContainer,LoadComposableNodes
+from launch_ros.actions import ComposableNodeContainer,LoadComposableNodes, Node
 from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -12,7 +13,7 @@ import datetime
 # --- Configurações da Câmera ---
 camera_params = {
     'debug': False,
-    'quiet': True,
+    'quiet': False,
     'compute_brightness': True,
     'dump_node_map': False,
     'adjust_timestamp': False,
@@ -20,8 +21,8 @@ camera_params = {
     'gain': 0,
     'frame_rate_enable': True,
     'frame_rate': 30,
-    'exposure_auto': 'Once',		 
-    'exposure_time':16667,
+    'exposure_auto': 'Off',		 
+    'exposure_time':8333.33,
     'auto_exposure_lower_limit':30 ,
     'auto_exposure_upper_limit':33333.33,
     'line2_selector': 'Line2',
@@ -42,6 +43,12 @@ camera_params = {
     'chunk_enable_gain': True,
     'chunk_selector_timestamp': 'Timestamp',
     'chunk_enable_timestamp': True,
+    # GigE
+    # 'device_link_throughput_limit': 125000000.,
+    # 'gev_scps_packet_size': 1500,
+    # # PTP for GigE cameras
+    # 'gev_ieee_1588': True,
+    # 'gev_ieee_1588_mode': 'SlaveOnly', 
 }
 
 def make_resizer_node(name, input_topic, output_topic):
@@ -53,11 +60,11 @@ def make_resizer_node(name, input_topic, output_topic):
         parameters=[{
             'resize_width': 800,
             'resize_height': 600,
-            'out_topic/compressed/jpeg_quality': 50 
+            'out_topic/compressed/jpeg_quality': 10 
         }],
         remappings=[
             ('input/image', input_topic),
-            ('output/compressed_image', output_topic)
+            ('output/compressed_image', output_topic),
         ],
         extra_arguments=[{'use_intra_process_comms': True}]
     )
@@ -90,7 +97,8 @@ def make_camera_node(name, cam_type, serial, camera_info_url, frame_id):
         namespace=LaunchConfiguration('namespace'),
         parameters=[
             camera_params,
-            {   'parameter_file': parameter_file,
+            {   'ffmpeg_image_transport.encoding': 'hevc_nvenc',
+                'parameter_file': parameter_file,
                 'serial_number': serial,
                 'camerainfo_url': camera_info_url,
                 'frame_id': frame_id,
@@ -103,6 +111,7 @@ def make_camera_node(name, cam_type, serial, camera_info_url, frame_id):
 
 def launch_setup(context, *args, **kwargs):
     # 1. Configurações das Câmeras
+    namespace = LaunchConfiguration('namespace').perform(context)
     cam_type_0 = LaunchConfiguration('cam_0_type').perform(context)
     cam_type_1 = LaunchConfiguration('cam_1_type').perform(context)
     serial_0 = LaunchConfiguration('cam_0_serial').perform(context)
@@ -127,7 +136,7 @@ def launch_setup(context, *args, **kwargs):
         make_resizer_node(f"{name_1}_debug", f"{name_1}/image_raw",f"{name_1}/debug/image_raw")
     ]
     composable_nodes_2 = [make_rectify_node(name_0), make_rectify_node(name_1)] # Container separado para os nós de retificação e disparidade
-
+    # composable_nodes_2 = []
     
     if LaunchConfiguration('slam').perform(context) == 'true':
         if LaunchConfiguration('inertial').perform(context) == 'true':
@@ -135,7 +144,7 @@ def launch_setup(context, *args, **kwargs):
                 package='orbslam3_ros2',
                 plugin='orbslam3_ros2::StereoInertialSlamNode',
                 name='slam_stereo_inertial_node',
-                namespace=LaunchConfiguration('namespace'),
+                namespace=namespace+'/slam',
                 parameters=[{
                     'voc_file': LaunchConfiguration('voc_file'),
                     'settings_file': LaunchConfiguration('settings_file'),
@@ -148,8 +157,8 @@ def launch_setup(context, *args, **kwargs):
                     'child_frame_id': frame_0
                 }],
                 remappings=[
-                    ('camera/left', f"{name_0}/image_raw"),
-                    ('camera/right', f"{name_1}/image_raw"),
+                    ('camera/left', f"/{namespace}/{name_0}/image_raw"),
+                    ('camera/right', f"/{namespace}/{name_1}/image_raw"),
                     ('imu', '/mavros/imu/data_raw') # Supondo que o IMU esteja publicando neste tópico
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}]
@@ -159,21 +168,24 @@ def launch_setup(context, *args, **kwargs):
                     package='orbslam3_ros2',
                     plugin='orbslam3_ros2::StereoSlamNode',
                     name='slam_stereo_node',
-                    namespace=LaunchConfiguration('namespace'),
+                    namespace=namespace+'/slam',
                     parameters=[{
                         'voc_file': LaunchConfiguration('voc_file'),
                         'settings_file': LaunchConfiguration('settings_file'),
                         'resize_factor': 0.5,
                         'ENU_publish': True,
                         'tracked_points': False,
+                        'tf_publish': False,
                         'clahe': LaunchConfiguration('use_clahe'),
                         'frame_id': 'map',
                         'parent_frame_id': 'base_link',
                         'child_frame_id': frame_0
                     }],
                     remappings=[
-                        ('camera/left', f"{name_0}/image_raw"),
-                        ('camera/right', f"{name_1}/image_raw")
+                        ('camera/left', f"/{namespace}/{name_0}/image_raw"),
+                        ('camera/right', f"/{namespace}/{name_1}/image_raw"),
+                        ('pose_cov', 'pose_cov'),
+                        ('slam_status', 'status')
                     ],
                     extra_arguments=[{'use_intra_process_comms': True}]
                 )
@@ -185,59 +197,59 @@ def launch_setup(context, *args, **kwargs):
             package='orbslam3_ros2', # Nome do seu pacote
             plugin='orbslam3_ros2::StereoImageSaverNode',
             name='stereo_saver_node',
-            namespace=LaunchConfiguration('namespace'),
+            namespace=namespace+'/saver',
             parameters=[{
                 'save_directory': LaunchConfiguration('save_directory')
             }],
             remappings=[
-                ('camera/left', f"{name_0}/image_raw"),
-                ('camera/right', f"{name_1}/image_raw")
+                ('camera/left', f"/{namespace}/{name_0}/image_raw"),
+                ('camera/right', f"/{namespace}/{name_1}/image_raw")
             ],
             extra_arguments=[{'use_intra_process_comms': True}]
         )
         composable_nodes.append(saver_node)
 
     if LaunchConfiguration('disparity').perform(context) == 'true':
-        
-
-        retinify_node = ComposableNode(
+ 
+        composable_nodes_2.append(ComposableNode(
             package='passive_stereo',
-            plugin='RetinifyDisparityNode',
-            name='retinify_disparity_node',
-            namespace=LaunchConfiguration('namespace'),
-            parameters=[{
-                'debug_image': True,
-                'publish_disp': True
-            }],
-            remappings=[
-                ('left/image_rect', f"{name_0}/image_rect"),
-                ('left/camera_info', f"{name_0}/camera_info"),
-                ('right/image_rect', f"{name_1}/image_rect"),
-                ('right/camera_info', f"{name_1}/camera_info")
-            ],
-            extra_arguments=[{'use_intra_process_comms': True}]
+                    plugin='passive_stereo::RetinifyStereoNode',
+                    name='retinify_stereo_node',
+                    namespace=namespace+'/disparity',
+                    parameters=[{
+                        'depth_mode': 'accuracy',
+                        'publish_disparity': False,
+                        'publish_pointcloud': True,
+                        'publish_depth': False,
+                        'publish_rectified': False,
+                        'debug_image': False,
+                        'clahe': LaunchConfiguration('use_clahe'),
+                        'sampling_factor': 0.2,
+                        'crop_factor': 1.0,
+                        'min_disp': 0.5,
+                        'max_dist': 10.0,
+                        'frame_id': frame_0,
+                        'parent_frame': 'base_link',
+                        'calibration_file': '',
+                        'use_gpu': True,
+                        'publish_confidence_field': False,
+                        'confidence_radius': 5,
+                        'confidence_alpha': 2.0,
+                        'min_confidence': 0.1,
+                    }],
+                    remappings=[
+                        ('left/image_rect', f"/{namespace}/{name_0}/image_rect"),
+                        ('right/image_rect', f"/{namespace}/{name_1}/image_rect"),
+                        ('left/camera_info', f"/{namespace}/{name_0}/camera_info"),
+                        ('right/camera_info', f"/{namespace}/{name_1}/camera_info"),
+                        ('disparity/image', 'image'),
+                        ('disparity/pointcloud', 'pointcloud'),
+                        ('depth/image', 'depth/image'),
+                        ('disparity/debug/image', 'debug/image'),
+                    ],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                )
         )
-        triangulation_node = ComposableNode(
-            package='passive_stereo',
-            plugin='TriangulationNode',
-            name='triangulation_node',
-            namespace=LaunchConfiguration('namespace'),
-            parameters=[{
-                'frame_id': frame_0,
-                'parent_frame': 'base_link',
-                'sampling_factor': 0.2,
-                'crop_factor': 0.7,
-            }],
-            remappings=[
-                ('left/image_rect', f"{name_0}/image_rect"),
-                ('right/camera_info', f"{name_1}/camera_info"),
-                ('disparity/image', 'disparity/image'),
-                ('pointcloud', 'disparity/pointcloud')
-            ],
-            extra_arguments=[{'use_intra_process_comms': True}]
-        )
-        composable_nodes_2.append(retinify_node)
-        composable_nodes_2.append(triangulation_node)
 
 
     
@@ -272,9 +284,9 @@ def generate_launch_description():
         DeclareLaunchArgument('cam_0_name', default_value='left', description='Camera 0 name'),
         DeclareLaunchArgument('cam_1_name', default_value='right', description='Camera 1 name'),
         DeclareLaunchArgument('cam_0_type', default_value='blackfly_s', description='Camera 0 type'),
-        DeclareLaunchArgument('cam_1_type', default_value='blackfly_s', description='Camera 1 type'),
-        DeclareLaunchArgument('cam_0_serial', default_value='16378753', description='Camera 0 serial number'),
-        DeclareLaunchArgument('cam_1_serial', default_value='16378754', description='Camera 1 serial number'),
+        DeclareLaunchArgument('cam_1_type', default_value='blackfly_s', description='Camera 1 type'), #
+        DeclareLaunchArgument('cam_0_serial', default_value='16378753', description='Camera 0 serial number'), #16378753
+        DeclareLaunchArgument('cam_1_serial', default_value='16378754', description='Camera 1 serial number'), #16378754
         DeclareLaunchArgument('cam_0_frame_id', default_value='Passive/left_camera_link', description='Frame ID for camera 0'),
         DeclareLaunchArgument('cam_1_frame_id', default_value='Passive/right_camera_link', description='Frame ID for camera 1'),
         DeclareLaunchArgument('namespace', default_value='Passive', description='ROS namespace'),
@@ -283,7 +295,8 @@ def generate_launch_description():
                   description='Caminho para o vocabulário ORB'),
         DeclareLaunchArgument('settings_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/voris_bringup/config/20260717_passivo_slam.yaml', 
                   description='Caminho para o settings .yaml'),
-        
+
+        DeclareLaunchArgument('bridge', default_value='true', description='Ativar bridge MAVLink?'),
         DeclareLaunchArgument('slam', default_value='true', description='Usar SLAM?'),
         DeclareLaunchArgument('inertial', default_value='false', description='Usar SLAM Stereo inertial?'),
         DeclareLaunchArgument('enable_saver', default_value='false', description='Ativar gravação de imagens?'),
@@ -291,6 +304,7 @@ def generate_launch_description():
         DeclareLaunchArgument('disparity', default_value='true', description='Ativar nó de disparidade?'),
         DeclareLaunchArgument('description', default_value='true', description='Ativar visualização da descrição?'),
         DeclareLaunchArgument('use_clahe', default_value='false', description='Ativar CLAHE para SLAM?'),
+        DeclareLaunchArgument('mavros_params_file', default_value=f'/home/{os.getenv("USER")}/ros2_ws/src/voris_bringup/config/mavros_params.yaml', description='Caminho para o arquivo de parâmetros do MAVROS'),
         # Nó de robot_description (visualização)
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([
@@ -305,6 +319,25 @@ def generate_launch_description():
             ]),
             launch_arguments={'namespace': LaunchConfiguration('namespace')}.items(),
         ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([PathJoinSubstitution([
+                FindPackageShare('orbslam3_ros2'), 'launch', 'mavlink_bridge.launch.py'])
+            ]),
+            launch_arguments={'namespace': LaunchConfiguration('namespace'),
+                              'connection_url': 'udpin:150.162.167.91:14770',
+                              'bridge_mode': 'estimate'}.items(),
+            condition=IfCondition(LaunchConfiguration('bridge')),
+        ),
+        # Node(
+        #     package='mavros',
+        #     executable='mavros_node',
+        #     namespace='mavros',
+        #     name='mavros', 
+        #     output='screen',
+        #     parameters=[LaunchConfiguration('mavros_params_file')],
+        # ),
+
+        
 
         OpaqueFunction(function=launch_setup),
     ])
